@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order Makanan</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #d3b995;
+      margin: 0;
+      padding: 0;
+    }
+    h2, h3 {
+      text-align: center;
+      margin-top: 16px;
+    }
+    .menu-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      padding: 16px;
+    }
+    .card {
+      background: rgb(236, 105, 105);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .card img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    .card img:hover {
+      transform: scale(1.05);
+    }
+    input[type="number"] {
+      width: 50px;
+      margin-top: 6px;
+      text-align: center;
+      font-size: 14px;
+    }
+    .total, .rekap, .pesanan-container {
+      max-width: 90%;
+      margin: 20px auto;
+      background: white;
+      padding: 12px;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .total span {
+      font-weight: bold;
+      font-size: 18px;
+    }
+    button {
+      display: block;
+      margin: 20px auto;
+      padding: 10px 20px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .reset-btn {
+      background: #dc3545;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: center;
+    }
+    th {
+      background-color: #f0f0f0;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.4);
+      padding-top: 60px;
+    }
+    .modal-content {
+      background-color: white;
+      margin: 5% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+      border-radius: 8px;
+    }
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+    }
+    .close:hover,
+    .close:focus {
+      color: black;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .modal-card {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      padding: 16px;
+    }
+    .selected-varian {
+      font-weight: bold;
+      margin-top: 12px;
+    }
+    .selected-varian span {
+      color: green;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Order Makanan</h2>
+<div class="menu-container" id="menu-container"></div>
+<div class="total">
+  Total: Rp <span id="total-harga">0</span>
+</div>
+<div class="pesanan-container" id="pesanan-container">
+  <h3>Daftar Pesanan</h3>
+  <ul id="daftar-pesanan"></ul>
+</div>
+<button onclick="prosesPesanan()">Proses Pesanan</button>
+<button class="reset-btn" onclick="resetQty()">Reset Pesanan</button>
+<div class="rekap" id="rekap" style="display: none;">
+  <h3>Rekap Pesanan</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Nama</th>
+        <th>Varian</th>
+        <th>Qty</th>
+        <th>Harga</th>
+        <th>Subtotal</th>
+      </tr>
+    </thead>
+    <tbody id="rekap-body"></tbody>
+    <tfoot>
+      <tr>
+        <th colspan="4">Total</th>
+        <th id="rekap-total">Rp 0</th>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+<div id="varianModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <h3>Pilih Varian</h3>
+    <div id="selected-varian" class="selected-varian">Varian yang dipilih: <span id="selected-varian-text">Tidak ada varian yang dipilih</span></div>
+    <div id="varian-cards" class="modal-card"></div>
+    <button onclick="addToPesanan()" id="add-to-pesanan-btn">Tambah ke Pesanan</button>
+  </div>
+</div>
+<script>
+ const menu = [
+    { 
+      nama: "Tahu Kocek", 
+      harga: 6000, 
+      gambar: "https://drive.google.com/file/d/1ZjGc-SXYBTvUJ9Xwkl3Loohrue85ZwHd/view?usp=drive_link",
+      varian: [
+        { nama: "Original", harga: 0 },
+        { nama: "Extra Sosis & Tempura", harga: 1000 },
+    
+      ]
+    },
+    { 
+      nama: "Nasi Cokot", 
+      harga: 6000, 
+      gambar: "nasi_cokot.jpg",
+      varian: [
+        { nama: "Standard", harga: 0 },
+        // { nama: "Besar", harga: 5000 },
+        // { nama: "Spesial", harga: 7000 }
+      ]
+    },
+    { 
+      nama: "Ceker Ayam", 
+      harga: 7000, 
+      gambar: "ceker.jpg",
+      varian: [
+        { nama: "Porsi Standar", harga: 0 },
+        { nama: "Porsi Besar", harga: 3000 }
+      ]
+    },
+    { 
+      nama: "Tahu Jeletot", 
+      harga: 2000, 
+      gambar: "tahu_jeletot.jpg",
+      varian: [
+        { nama: "Isi bakso", harga: 0 },
+        { nama: "Isi Ayam Suwir", harga: 1000 }
+      ]
+    }
+  ];
+
+const container = document.getElementById("menu-container");
+let pesanan = JSON.parse(localStorage.getItem('pesanan')) || [];
+let rekapPesanan = JSON.parse(localStorage.getItem('rekapPesanan')) || [];
+
+let selectedItem = null;
+let selectedVariant = null;
+
+menu.forEach((item, index) => {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <img src="${item.gambar}" alt="${item.nama}" onclick="showVarianModal(${index})">
+    <h4>${item.nama}</h4>
+    <p>Rp ${item.harga.toLocaleString()}</p>
+  `;
+  container.appendChild(card);
+});
+
+function showVarianModal(index) {
+  selectedItem = menu[index];
+  const varianCards = document.getElementById("varian-cards");
+  varianCards.innerHTML = "";
+  selectedItem.varian.forEach((varian, vIndex) => {
+    const varianCard = document.createElement("div");
+    varianCard.className = "card";
+    varianCard.innerHTML = `
+      <h4>${varian.nama}</h4>
+      <p>+Rp ${varian.harga.toLocaleString()}</p>
+      <button onclick="selectVarian(${vIndex})" id="varian-btn-${vIndex}">Pilih</button>
+    `;
+    varianCards.appendChild(varianCard);
+  });
+  document.getElementById("varianModal").style.display = "block";
+  updateVarianSelection();
+}
+
+function selectVarian(vIndex) {
+  selectedVariant = selectedItem.varian[vIndex];
+  updateVarianSelection();
+  disableSelectedVarianButton(vIndex);
+}
+
+function updateVarianSelection() {
+  const text = selectedVariant ? selectedVariant.nama : "Tidak ada varian yang dipilih";
+  document.getElementById("selected-varian-text").textContent = text;
+  selectedItem.varian.forEach((_, i) => {
+    const btn = document.getElementById(`varian-btn-${i}`);
+    if (btn) btn.disabled = false;
+  });
+}
+
+function disableSelectedVarianButton(selectedIndex) {
+  const btn = document.getElementById(`varian-btn-${selectedIndex}`);
+  if (btn) btn.disabled = true;
+}
+
+function closeModal() {
+  document.getElementById("varianModal").style.display = "none";
+  selectedVariant = null;
+  selectedItem = null;
+}
+
+function addToPesanan() {
+  if (!selectedItem || !selectedVariant) return;
+
+  const hargaFinal = selectedItem.harga + selectedVariant.harga;
+  const existingIndex = pesanan.findIndex(p =>
+    p.nama === selectedItem.nama && p.varian === selectedVariant.nama
+  );
+
+  if (existingIndex >= 0) {
+    pesanan[existingIndex].qty += 1;
+  } else {
+    pesanan.push({
+      nama: selectedItem.nama,
+      varian: selectedVariant.nama,
+      harga: hargaFinal,
+      qty: 1
+    });
+  }
+
+  localStorage.setItem('pesanan', JSON.stringify(pesanan));
+  updatePesananList();
+  updateTotalHarga();
+  closeModal();
+}
+
+function updateTotalHarga() {
+  const total = pesanan.reduce((sum, item) => sum + (item.harga * item.qty), 0);
+  document.getElementById("total-harga").textContent = total.toLocaleString();
+}
+
+function updatePesananList() {
+  const daftarPesanan = document.getElementById("daftar-pesanan");
+  daftarPesanan.innerHTML = "";
+  pesanan.forEach(item => {
+    const li = document.createElement("li");
+    li.textContent = `${item.nama} (${item.varian}) x${item.qty} - Rp ${item.harga.toLocaleString()}`;
+    daftarPesanan.appendChild(li);
+  });
+}
+
+function resetQty() {
+  pesanan = [];
+  localStorage.setItem('pesanan', JSON.stringify(pesanan));
+  updatePesananList();
+  updateTotalHarga();
+}
+
+function prosesPesanan() {
+  rekapPesanan = [...pesanan];
+  localStorage.setItem('rekapPesanan', JSON.stringify(rekapPesanan));
+
+  const tbody = document.getElementById("rekap-body");
+  tbody.innerHTML = "";
+  let total = 0;
+
+  rekapPesanan.forEach(item => {
+    const subtotal = item.qty * item.harga;
+    const row = `
+      <tr>
+        <td>${item.nama}</td>
+        <td>${item.varian}</td>
+        <td>${item.qty}</td>
+        <td>Rp ${item.harga.toLocaleString()}</td>
+        <td>Rp ${subtotal.toLocaleString()}</td>
+      </tr>
+    `;
+    tbody.insertAdjacentHTML("beforeend", row);
+    total += subtotal;
+  });
+
+  document.getElementById("rekap-total").textContent = "Rp " + total.toLocaleString();
+  document.getElementById("rekap").style.display = total > 0 ? "block" : "none";
+}
+document.addEventListener('DOMContentLoaded', function () {
+  updatePesananList();
+  updateTotalHarga();
+  prosesPesanan(); // untuk load rekapPesanan dari localStorage jika ada
+});
+</script>
+</body>
+</html>
